@@ -80,6 +80,12 @@ html,body{height:100%;font-family:'Segoe UI',system-ui,sans-serif;background:var
 .si-artist{font-size:12px;color:var(--muted);margin-top:2px}
 .lrc-btn{display:flex;align-items:center;gap:6px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:7px 12px;font-size:12px;cursor:pointer;transition:border-color .15s;white-space:nowrap;flex-shrink:0}
 .lrc-btn:hover{border-color:var(--accent)}
+.fetch-btn{display:flex;align-items:center;gap:6px;background:var(--accent-dim);border:1px solid var(--accent);color:var(--accent);border-radius:6px;padding:7px 12px;font-size:12px;font-weight:600;cursor:pointer;transition:background .15s;white-space:nowrap;flex-shrink:0}
+.fetch-btn:hover{background:rgba(149,128,255,.3)}
+.fetch-btn:disabled{opacity:.5;cursor:not-allowed}
+.fetch-btn.loading .fetch-icon{animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.head-btns{display:flex;gap:6px;align-items:center;flex-shrink:0}
 .lyr-wrap{flex:1;position:relative;overflow:hidden}
 .fade-top,.fade-bot{position:absolute;left:0;right:0;height:90px;z-index:2;pointer-events:none}
 .fade-top{top:0;background:linear-gradient(to bottom,var(--bg),transparent)}
@@ -242,10 +248,16 @@ html,body{height:100%;font-family:'Segoe UI',system-ui,sans-serif;background:var
           <div class="si-title" id="siTitle">LyricPlayer</div>
           <div class="si-artist" id="siArtist">Drop songs or tap Add Songs</div>
         </div>
-        <button class="lrc-btn" id="lrcBtn">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-          LRC
-        </button>
+        <div class="head-btns">
+          <button class="fetch-btn" id="fetchBtn" title="Auto-fetch lyrics from LRCLIB">
+            <svg class="fetch-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            Fetch
+          </button>
+          <button class="lrc-btn" id="lrcBtn">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            LRC
+          </button>
+        </div>
       </div>
       <div class="lyr-wrap">
         <div class="fade-top"></div>
@@ -705,6 +717,77 @@ document.addEventListener('keydown',e=>{
     case'r':case'R':$('repeatBtn').click();break;
   }
 });
+
+/* ── Fetch lyrics (LRCLIB) ── */
+async function fetchLyrics(){
+  if(state.idx<0){toast('Load a song first');return;}
+  const t=state.tracks[state.idx];
+  const btn=$('fetchBtn');
+  btn.disabled=true;btn.classList.add('loading');
+  const origHTML=btn.innerHTML;
+  btn.innerHTML=`<svg class="fetch-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Fetching…`;
+  try{
+    // Try direct get with duration
+    const dur=Math.round(audio.duration||0);
+    const artist=t.artist==='Unknown'?'':t.artist;
+    const p=new URLSearchParams({artist_name:artist,track_name:t.title});
+    if(dur)p.set('duration',dur);
+    let data=null;
+    let res=await fetch(`https://lrclib.net/api/get?${p}`).catch(()=>null);
+    if(res&&res.ok){
+      data=await res.json();
+    } else {
+      // Fallback: search
+      const q=encodeURIComponent(`${t.title} ${artist}`.trim());
+      res=await fetch(`https://lrclib.net/api/search?q=${q}`).catch(()=>null);
+      if(res&&res.ok){
+        const results=await res.json();
+        data=(results.find(r=>r.syncedLyrics)||results.find(r=>r.plainLyrics)||null);
+      }
+    }
+    if(!data){toast('No lyrics found on LRCLIB');return;}
+    if(data.syncedLyrics){
+      applyLRC(data.syncedLyrics,true);
+      toast('Synced lyrics fetched ✓');
+    } else if(data.plainLyrics){
+      applyPlainAsLRC(data.plainLyrics);
+    } else {
+      toast('No lyrics in result');
+    }
+  } catch{toast('Fetch failed — check connection');}
+  finally{btn.disabled=false;btn.classList.remove('loading');btn.innerHTML=origHTML;}
+}
+
+function applyPlainAsLRC(text){
+  // Distribute lines evenly across song duration
+  const lines=text.split('\n').filter(l=>l.trim());
+  if(!lines.length){toast('Empty lyrics');return;}
+  const dur=audio.duration||0;
+  let lrcText='';
+  if(dur>0){
+    const step=dur/lines.length;
+    lrcText=lines.map((l,i)=>{
+      const t=i*step;
+      const m=Math.floor(t/60).toString().padStart(2,'0');
+      const s=(t%60).toFixed(2).padStart(5,'0');
+      return`[${m}:${s}]${l}`;
+    }).join('\n');
+    applyLRC(lrcText,true);
+    toast('Plain lyrics loaded — sync is approximate');
+  } else {
+    // No duration yet — just show statically with dummy stamps
+    lrcText=lines.map((l,i)=>{
+      const t=i*3;
+      const m=Math.floor(t/60).toString().padStart(2,'0');
+      const s=(t%60).toFixed(2).padStart(5,'0');
+      return`[${m}:${s}]${l}`;
+    }).join('\n');
+    applyLRC(lrcText,true);
+    toast('Plain lyrics loaded (no audio duration yet)');
+  }
+}
+
+$('fetchBtn').addEventListener('click',fetchLyrics);
 
 /* ── Feature detection ── */
 if(!('showDirectoryPicker' in window)){$('folderBtn').style.display='none';}
