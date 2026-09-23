@@ -1,5 +1,5 @@
-const CACHE = 'lyricplayer-v2';
-const ASSETS = ['./lyricplayer.html', './manifest.json', './icon.svg', './sw.js'];
+const CACHE = 'lyricplayer-v3';
+const ASSETS = ['./index.html', './styles.css', './app.js', './manifest.json', './icon.svg', './sw.js'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)));

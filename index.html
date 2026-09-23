@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>LyricPlayer</title>
+<link rel="stylesheet" href="styles.css">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#9580ff">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="LyricPlayer">
+<link rel="apple-touch-icon" href="icon.svg">
+</head>
+<body>
+<div class="app">
+  <div class="content">
+    <div class="sb-backdrop" id="sbBackdrop"></div>
+
+    <aside class="sidebar" id="sidebar">
+      <div class="sb-head">
+        <div class="sb-head-row">
+          <h2>Queue</h2>
+          <div class="sb-btns">
+            <button class="icon-btn" id="folderBtn" title="Set library folder">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+            </button>
+            <button class="add-btn" id="addBtn">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M19 11h-6V5h-2v6H5v2h6v6h2v-6h6z"/></svg>
+              Add Songs
+            </button>
+          </div>
+        </div>
+        <div class="lib-status" id="libStatus">
+          <div class="lib-dot"></div>
+          <div class="lib-name" id="libName">Library</div>
+          <button class="lib-reload" id="libReload" title="Reload library">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.17"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="playlist" id="playlist"></div>
+      <div class="sb-drop" id="sbDrop">Drop MP3 · WAV · OGG · FLAC here</div>
+    </aside>
+
+    <main class="lyrics-panel">
+      <div class="lyr-head">
+        <button class="mob-q-btn" id="mobQBtn" title="Queue">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="15" y2="18"/></svg>
+        </button>
+        <div class="song-info">
+          <div class="si-title" id="siTitle">LyricPlayer</div>
+          <div class="si-artist" id="siArtist">Drop songs or tap Add Songs</div>
+        </div>
+        <div class="head-btns">
+          <button class="fetch-btn" id="fetchBtn" title="Auto-fetch lyrics from LRCLIB">
+            <svg class="fetch-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            Fetch
+          </button>
+          <button class="lrc-btn" id="lrcBtn">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            LRC
+          </button>
+        </div>
+      </div>
+      <div class="lyr-wrap">
+        <div class="fade-top"></div>
+        <div class="fade-bot"></div>
+        <div class="lyr-scroll" id="lyrScroll">
+          <div class="spacer"></div>
+          <div class="no-lyr">
+            <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+            <p>No lyrics loaded</p>
+            <small>Tap Fetch or load an .lrc file</small>
+          </div>
+          <div class="spacer"></div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <footer class="player-bar">
+    <div class="p-left">
+      <div class="art" id="artWrap">
+        <img id="artImg" alt="">
+        <span class="art-ph">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/><line x1="12" y1="9" x2="12" y2="2"/></svg>
+        </span>
+      </div>
+      <div class="p-song">
+        <div class="p-title" id="pTitle">No song selected</div>
+        <div class="p-artist" id="pArtist">—</div>
+      </div>
+    </div>
+
+    <div class="p-center">
+      <div class="ctrl-row">
+        <button class="cbtn" id="shuffleBtn" title="Shuffle (S)">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg>
+        </button>
+        <button class="cbtn" id="prevBtn" title="Prev (P)">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg>
+        </button>
+        <button class="play-btn" id="playBtn" title="Play/Pause (Space)">
+          <svg id="iPlay" width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+          <svg id="iPause" width="22" height="22" viewBox="0 0 24 24" fill="currentColor" style="display:none"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+        </button>
+        <button class="cbtn" id="nextBtn" title="Next (N)">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zm10-12v12h2V6h-2z"/></svg>
+        </button>
+        <button class="cbtn" id="repeatBtn" title="Repeat (R)">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+        </button>
+      </div>
+      <div class="prog-row">
+        <span class="tl" id="curT">0:00</span>
+        <div class="prog" id="prog">
+          <div class="prog-fill" id="progFill"></div>
+          <div class="prog-thumb" id="progThumb"></div>
+        </div>
+        <span class="tl" id="totT">0:00</span>
+      </div>
+    </div>
+
+    <div class="p-right">
+      <button class="vol-btn" id="muteBtn" title="Mute (M)">
+        <svg id="volIcon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+      </button>
+      <input type="range" class="vol-slider" id="volSlider" min="0" max="1" step="0.01" value="1">
+    </div>
+  </footer>
+</div>
+
+<div class="drop-ov" id="dropOv">
+  <div class="drop-box">
+    <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.5"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+    <div class="dbt">Drop audio or LRC files</div>
+    <div class="dbs">MP3 · WAV · OGG · FLAC · .lrc</div>
+  </div>
+</div>
+
+<div class="kbd-hint">Space · play/pause<br>← → · seek 10s<br>↑ ↓ · volume<br>N / P · next / prev</div>
+<div class="toast" id="toast"></div>
+
+<input type="file" id="fileIn" accept="audio/*,.mp3,.wav,.ogg,.flac,.m4a,.aac,.opus" multiple style="display:none">
+<input type="file" id="lrcIn" accept=".lrc,.txt" style="display:none">
+
+<script src="app.js"></script>
+</body>
+</html>

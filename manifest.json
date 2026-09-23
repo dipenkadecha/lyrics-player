@@ -2,7 +2,7 @@
   "name": "LyricPlayer",
   "short_name": "LyricPlayer",
   "description": "Offline music player with synced lyrics",
-  "start_url": "./lyricplayer.html",
+  "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#0d0d14",
   "theme_color": "#9580ff",
