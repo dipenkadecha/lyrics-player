@@ -1,0 +1,12 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Music library (local only — don't commit actual audio files)
+*.mp3
+*.wav
+*.ogg
+*.flac
+*.m4a
+*.aac
+*.opus
