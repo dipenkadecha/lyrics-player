@@ -6,6 +6,12 @@ function genId(){return Date.now().toString(36)+Math.random().toString(36).slice
 function toast(msg,dur=2500){const e=$('toast');e.textContent=msg;e.classList.add('show');clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove('show'),dur)}
 
 const state={tracks:[],idx:-1,playing:false,shuffle:false,repeat:'none',lyrics:[],lyricIdx:-1,muted:false,vol:1,libraryHandle:null};
+function sortTracks(){
+  if(state.tracks.length<2)return;
+  const cur=state.tracks[state.idx]||null;
+  state.tracks.sort((a,b)=>a.file.name.localeCompare(b.file.name,undefined,{numeric:true,sensitivity:'base'}));
+  if(cur)state.idx=state.tracks.indexOf(cur);
+}
 const audio=new Audio();
 
 /* ── Mobile drawer ── */
@@ -73,24 +79,23 @@ async function loadSongsFromIDB(){
       req.onsuccess=e=>res(e.target.result);req.onerror=rej;
     });
     if(!records.length)return;
-    const startIdx=state.tracks.length;
-    for(const r of records){
+    const newTracks=records.map(r=>{
       const file=new File([r.data],r.filename,{type:r.mimeType});
-      state.tracks.push({id:r.id,file,title:r.title,artist:r.artist,dur:'—',artUrl:null,lrc:r.lrc||null,stem:r.stem});
-    }
+      return{id:r.id,file,title:r.title,artist:r.artist,dur:'—',artUrl:null,lrc:r.lrc||null,stem:r.stem};
+    });
+    state.tracks.push(...newTracks);
+    sortTracks();
     renderPlaylist();
-    if(state.idx===-1)loadTrack(startIdx,false);
-    for(let i=0;i<records.length;i++){
-      const ti=startIdx+i;if(!state.tracks[ti])continue;
-      const url=URL.createObjectURL(state.tracks[ti].file);
+    if(state.idx===-1)loadTrack(0,false);
+    for(const track of newTracks){
+      const url=URL.createObjectURL(track.file);
       const a=new Audio();a.src=url;
-      a.addEventListener('loadedmetadata',()=>{if(state.tracks[ti]){state.tracks[ti].dur=fmt(a.duration);URL.revokeObjectURL(url);renderPlaylist();}});
-      parseID3(state.tracks[ti].file).then(meta=>{
-        if(!state.tracks[ti])return;
-        if(meta.title)state.tracks[ti].title=meta.title;
-        if(meta.artist)state.tracks[ti].artist=meta.artist;
-        if(meta.artUrl)state.tracks[ti].artUrl=meta.artUrl;
-        renderPlaylist();if(ti===state.idx)refreshPlayerUI(ti);
+      a.addEventListener('loadedmetadata',()=>{track.dur=fmt(a.duration);URL.revokeObjectURL(url);renderPlaylist();});
+      parseID3(track.file).then(meta=>{
+        if(meta.title)track.title=meta.title;
+        if(meta.artist)track.artist=meta.artist;
+        if(meta.artUrl)track.artUrl=meta.artUrl;
+        renderPlaylist();if(track===state.tracks[state.idx])refreshPlayerUI(state.idx);
       });
     }
     toast(`Restored ${records.length} track${records.length>1?'s':''} ✓`,2000);
@@ -136,7 +141,7 @@ async function loadLibrary(){
   const existing=new Set(state.tracks.map(t=>t.file.name));
   const newEntries=audioEntries.filter(({name})=>!existing.has(name));
   if(!newEntries.length){toast('Library up to date');return;}
-  const startIdx=state.tracks.length;let loaded=0;
+  const newTracks=[];
   for(const{name,h}of newEntries){
     try{
       const file=await h.getFile();
@@ -146,29 +151,27 @@ async function loadLibrary(){
       const artist=parts.length>1?parts[0].trim():'Unknown';
       let lrc=null;const lrcH=lrcMap[stem.toLowerCase()];
       if(lrcH){const lf=await lrcH.getFile();lrc=await lf.text();}
-      const id=genId();
-      const track={id,file,title,artist,dur:'—',artUrl:null,lrc,stem};
+      const track={id:genId(),file,title,artist,dur:'—',artUrl:null,lrc,stem};
       state.tracks.push(track);
+      newTracks.push(track);
       saveSongToIDB(track);
-      loaded++;
     }catch{}
   }
-  if(loaded){
-    renderPlaylist();if(state.idx===-1)loadTrack(startIdx,false);
-    for(let i=0;i<loaded;i++){
-      const ti=startIdx+i;if(!state.tracks[ti])continue;
-      const url=URL.createObjectURL(state.tracks[ti].file);
+  if(newTracks.length){
+    sortTracks();
+    renderPlaylist();if(state.idx===-1)loadTrack(0,false);
+    for(const track of newTracks){
+      const url=URL.createObjectURL(track.file);
       const a=new Audio();a.src=url;
-      a.addEventListener('loadedmetadata',()=>{if(state.tracks[ti]){state.tracks[ti].dur=fmt(a.duration);URL.revokeObjectURL(url);renderPlaylist();}});
-      parseID3(state.tracks[ti].file).then(meta=>{
-        if(!state.tracks[ti])return;
-        if(meta.title)state.tracks[ti].title=meta.title;
-        if(meta.artist)state.tracks[ti].artist=meta.artist;
-        if(meta.artUrl)state.tracks[ti].artUrl=meta.artUrl;
-        renderPlaylist();if(ti===state.idx)refreshPlayerUI(ti);
+      a.addEventListener('loadedmetadata',()=>{track.dur=fmt(a.duration);URL.revokeObjectURL(url);renderPlaylist();});
+      parseID3(track.file).then(meta=>{
+        if(meta.title)track.title=meta.title;
+        if(meta.artist)track.artist=meta.artist;
+        if(meta.artUrl)track.artUrl=meta.artUrl;
+        renderPlaylist();if(track===state.tracks[state.idx])refreshPlayerUI(state.idx);
       });
     }
-    toast(`Loaded ${loaded} track${loaded>1?'s':''} from library`);
+    toast(`Loaded ${newTracks.length} track${newTracks.length>1?'s':''} from library`);
   }else toast('Library folder is empty');
 }
 async function saveFileToLibrary(file,filename){
@@ -418,31 +421,31 @@ async function addFiles(fl){
   const lFiles=files.filter(f=>/\.lrc$/i.test(f.name));
   if(lFiles.length&&state.idx>=0){const r=new FileReader();r.onload=e=>applyLRC(e.target.result,true);r.readAsText(lFiles[0]);}
   if(!aFiles.length)return;
-  const startIdx=state.tracks.length,wasEmpty=state.idx===-1;
+  const wasEmpty=state.idx===-1;
+  const newTracks=[];
   for(const file of aFiles){
     const name=file.name.replace(/\.[^.]+$/,'');
     const parts=name.split(' - ');
     const title=parts.length>1?parts.slice(1).join(' - ').trim():name.trim();
     const artist=parts.length>1?parts[0].trim():'Unknown';
-    const id=genId();
-    const track={id,file,title,artist,dur:'—',artUrl:null,lrc:null,stem:name};
+    const track={id:genId(),file,title,artist,dur:'—',artUrl:null,lrc:null,stem:name};
     state.tracks.push(track);
+    newTracks.push(track);
     if(state.libraryHandle)saveFileToLibrary(file,file.name);
-    saveSongToIDB(track); // persist to IDB
+    saveSongToIDB(track);
   }
-  if(wasEmpty)loadTrack(startIdx,true);else renderPlaylist();
+  sortTracks();
+  if(wasEmpty)loadTrack(0,true);else renderPlaylist();
   toast(`Added ${aFiles.length} track${aFiles.length>1?'s':''}`,2000);
-  for(let i=0;i<aFiles.length;i++){
-    const ti=startIdx+i;
-    const url=URL.createObjectURL(aFiles[i]);
+  for(const track of newTracks){
+    const url=URL.createObjectURL(track.file);
     const a=new Audio();a.src=url;
-    a.addEventListener('loadedmetadata',()=>{if(state.tracks[ti]){state.tracks[ti].dur=fmt(a.duration);URL.revokeObjectURL(url);renderPlaylist();}});
-    parseID3(aFiles[i]).then(meta=>{
-      if(!state.tracks[ti])return;
-      if(meta.title)state.tracks[ti].title=meta.title;
-      if(meta.artist)state.tracks[ti].artist=meta.artist;
-      if(meta.artUrl)state.tracks[ti].artUrl=meta.artUrl;
-      renderPlaylist();if(ti===state.idx)refreshPlayerUI(ti);
+    a.addEventListener('loadedmetadata',()=>{track.dur=fmt(a.duration);URL.revokeObjectURL(url);renderPlaylist();});
+    parseID3(track.file).then(meta=>{
+      if(meta.title)track.title=meta.title;
+      if(meta.artist)track.artist=meta.artist;
+      if(meta.artUrl)track.artUrl=meta.artUrl;
+      renderPlaylist();if(track===state.tracks[state.idx])refreshPlayerUI(state.idx);
     });
   }
 }
