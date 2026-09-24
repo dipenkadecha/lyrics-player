@@ -106,8 +106,10 @@ async function ensurePermission(handle){
 async function initLibrary(){
   try{
     const h=await dbGet('libraryHandle');if(!h)return;
-    const ok=await ensurePermission(h);if(!ok)return;
-    state.libraryHandle=h;showLibStatus(h.name);await loadLibrary();
+    state.libraryHandle=h;
+    const perm=await h.queryPermission({mode:'readwrite'});
+    if(perm==='granted'){showLibStatus(h.name);await loadLibrary();}
+    else{showLibStatus(h.name);toast(`Tap ↻ to restore library "${h.name}"`,4000);}
   }catch{}
 }
 async function setLibraryFolder(){
@@ -145,7 +147,9 @@ async function loadLibrary(){
       let lrc=null;const lrcH=lrcMap[stem.toLowerCase()];
       if(lrcH){const lf=await lrcH.getFile();lrc=await lf.text();}
       const id=genId();
-      state.tracks.push({id,file,title,artist,dur:'—',artUrl:null,lrc,stem});
+      const track={id,file,title,artist,dur:'—',artUrl:null,lrc,stem};
+      state.tracks.push(track);
+      saveSongToIDB(track);
       loaded++;
     }catch{}
   }
@@ -393,6 +397,9 @@ document.addEventListener('touchmove',e=>{if(dragging){e.preventDefault();seekPc
 $('folderBtn').addEventListener('click',setLibraryFolder);
 $('libReload').addEventListener('click',async()=>{
   if(!state.libraryHandle)return;
+  const ok=await ensurePermission(state.libraryHandle);
+  if(!ok){toast('Permission denied');return;}
+  showLibStatus(state.libraryHandle.name);
   await loadLibrary();
 });
 $('addBtn').addEventListener('click',()=>$('fileIn').click());
