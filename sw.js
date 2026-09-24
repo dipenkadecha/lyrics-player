@@ -1,4 +1,4 @@
-const CACHE = 'lyricplayer-v3';
+const CACHE = 'lyricplayer-v4';
 const ASSETS = ['./index.html', './styles.css', './app.js', './manifest.json', './icon.svg', './sw.js'];
 
 self.addEventListener('install', e => {
