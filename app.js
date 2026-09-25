@@ -9,7 +9,10 @@ const state={tracks:[],idx:-1,playing:false,shuffle:false,repeat:'none',lyrics:[
 function sortTracks(){
   if(state.tracks.length<2)return;
   const cur=state.tracks[state.idx]||null;
-  state.tracks.sort((a,b)=>a.file.name.localeCompare(b.file.name,undefined,{numeric:true,sensitivity:'base'}));
+  state.tracks.sort((a,b)=>{
+    const na=a.file.name.toLowerCase(),nb=b.file.name.toLowerCase();
+    return na<nb?-1:na>nb?1:0;
+  });
   if(cur)state.idx=state.tracks.indexOf(cur);
 }
 const audio=new Audio();
