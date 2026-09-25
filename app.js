@@ -397,6 +397,7 @@ document.addEventListener('touchend',()=>{dragging=false;prog.classList.remove('
 document.addEventListener('touchmove',e=>{if(dragging){e.preventDefault();seekPct(pctFromEvent(e));}},{passive:false});
 
 /* ── File loading ── */
+$('sortBtn').addEventListener('click',()=>{sortTracks();renderPlaylist();toast('Sorted A→Z',1500);});
 $('folderBtn').addEventListener('click',setLibraryFolder);
 $('libReload').addEventListener('click',async()=>{
   if(!state.libraryHandle)return;
