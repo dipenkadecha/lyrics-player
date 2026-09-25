@@ -520,7 +520,17 @@ document.addEventListener('keydown',e=>{
 
 /* ── Init ── */
 if(!('showDirectoryPicker' in window))$('folderBtn').style.display='none';
-if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>{
+    navigator.serviceWorker.register('./sw.js').catch(()=>{});
+    navigator.serviceWorker.addEventListener('controllerchange',()=>{
+      const t=$('toast');
+      t.textContent='Update available — tap to reload';
+      t.classList.add('show','update');
+      t.onclick=()=>window.location.reload();
+    });
+  });
+}
 
 // Load persisted songs first, then desktop library folder
 loadSongsFromIDB().then(()=>initLibrary());

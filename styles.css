@@ -132,6 +132,7 @@ html,body{height:100%;font-family:'Segoe UI',system-ui,sans-serif;background:var
 /* ── Toast ── */
 .toast{position:fixed;bottom:calc(80px + var(--safe-bottom));left:50%;transform:translateX(-50%) translateY(8px);background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:8px 18px;border-radius:20px;font-size:13px;opacity:0;transition:opacity .2s,transform .2s;pointer-events:none;z-index:200;white-space:nowrap;max-width:90vw;text-align:center}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.toast.update{background:var(--accent);border-color:var(--accent);color:#fff;pointer-events:all;cursor:pointer;font-weight:600}
 .kbd-hint{position:fixed;bottom:calc(80px + var(--safe-bottom));right:16px;font-size:10px;color:var(--muted);text-align:right;line-height:1.9;pointer-events:none}
 
 /* ══ MOBILE ══ */
