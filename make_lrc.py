@@ -61,7 +61,7 @@ def run_whisper(audio_path):
     return segments
 
 def read_lyrics(lyrics_path):
-    with open(lyrics_path, encoding="utf-8") as f:
+    with open(lyrics_path, encoding="utf-8-sig") as f:
         raw = f.read()
     meta_lines = []
     lyric_lines = []   # non-blank, non-meta

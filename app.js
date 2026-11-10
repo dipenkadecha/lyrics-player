@@ -5,7 +5,7 @@ function fmt(s){if(!isFinite(s))return'0:00';const m=Math.floor(s/60),ss=Math.fl
 function genId(){return Date.now().toString(36)+Math.random().toString(36).slice(2)}
 function toast(msg,dur=2500){const e=$('toast');e.textContent=msg;e.classList.add('show');clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove('show'),dur)}
 
-const state={tracks:[],idx:-1,playing:false,shuffle:false,repeat:'none',lyrics:[],lyricIdx:-1,muted:false,vol:1,libraryHandle:null};
+const state={tracks:[],idx:-1,playing:false,shuffle:false,repeat:'none',lyrics:[],lyricIdx:-1,muted:false,vol:1,libraryHandle:null,_songCache:{},activePlaylistId:null};
 function sortTracks(){
   if(state.tracks.length<2)return;
   const cur=state.tracks[state.idx]||null;
@@ -26,7 +26,7 @@ $('sbBackdrop').addEventListener('click',closeQueue);
 /* ── IndexedDB (settings + song persistence) ── */
 function openDB(){
   return new Promise((res,rej)=>{
-    const r=indexedDB.open('lyricplayer_v1',2);
+    const r=indexedDB.open('lyricplayer_v1',3);
     r.onupgradeneeded=e=>{
       const db=e.target.result;
       if(!db.objectStoreNames.contains('kv'))db.createObjectStore('kv');
@@ -34,6 +34,7 @@ function openDB(){
         const s=db.createObjectStore('songs',{keyPath:'id'});
         s.createIndex('by_added','addedAt',{unique:false});
       }
+      if(!db.objectStoreNames.contains('playlists'))db.createObjectStore('playlists',{keyPath:'id'});
     };
     r.onsuccess=e=>res(e.target.result);r.onerror=rej;
   });
@@ -86,6 +87,7 @@ async function loadSongsFromIDB(){
       const file=new File([r.data],r.filename,{type:r.mimeType});
       return{id:r.id,file,title:r.title,artist:r.artist,dur:'—',artUrl:null,lrc:r.lrc||null,stem:r.stem};
     });
+    newTracks.forEach(t=>{state._songCache[t.id]=t;});
     state.tracks.push(...newTracks);
     sortTracks();
     renderPlaylist();
@@ -103,6 +105,20 @@ async function loadSongsFromIDB(){
     }
     toast(`Restored ${records.length} track${records.length>1?'s':''} ✓`,2000);
   }catch(e){console.warn('IDB load failed',e);}
+}
+
+/* ── Playlist IDB ── */
+async function dbSavePlaylist(pl){
+  const db=await openDB();
+  return new Promise((res,rej)=>{const tx=db.transaction('playlists','readwrite');tx.objectStore('playlists').put(pl);tx.oncomplete=res;tx.onerror=rej;});
+}
+async function dbGetAllPlaylists(){
+  const db=await openDB();
+  return new Promise((res,rej)=>{const tx=db.transaction('playlists','readonly');const req=tx.objectStore('playlists').getAll();req.onsuccess=e=>res(e.target.result);req.onerror=rej;});
+}
+async function dbDeletePlaylist(id){
+  const db=await openDB();
+  return new Promise((res,rej)=>{const tx=db.transaction('playlists','readwrite');tx.objectStore('playlists').delete(id);tx.oncomplete=res;tx.onerror=rej;});
 }
 
 /* ── Library folder (desktop) ── */
@@ -155,6 +171,7 @@ async function loadLibrary(){
       let lrc=null;const lrcH=lrcMap[stem.toLowerCase()];
       if(lrcH){const lf=await lrcH.getFile();lrc=await lf.text();}
       const track={id:genId(),file,title,artist,dur:'—',artUrl:null,lrc,stem};
+      state._songCache[track.id]=track;
       state.tracks.push(track);
       newTracks.push(track);
       saveSongToIDB(track);
@@ -268,7 +285,7 @@ function renderPlaylist(){
     e.stopPropagation();
     const i=+btn.dataset.i;
     const track=state.tracks[i];
-    if(track.id)removeSongFromIDB(track.id);
+    if(track.id){removeSongFromIDB(track.id);delete state._songCache[track.id];}
     state.tracks.splice(i,1);
     if(state.idx===i){
       if(!state.tracks.length){
@@ -433,6 +450,7 @@ async function addFiles(fl){
     const title=parts.length>1?parts.slice(1).join(' - ').trim():name.trim();
     const artist=parts.length>1?parts[0].trim():'Unknown';
     const track={id:genId(),file,title,artist,dur:'—',artUrl:null,lrc:null,stem:name};
+    state._songCache[track.id]=track;
     state.tracks.push(track);
     newTracks.push(track);
     if(state.libraryHandle)saveFileToLibrary(file,file.name);
@@ -520,6 +538,93 @@ document.addEventListener('keydown',e=>{
     case'r':case'R':$('repeatBtn').click();break;
   }
 });
+
+/* ── Playlists ── */
+function switchTab(tab){
+  const q=tab==='queue';
+  $('playlist').style.display=q?'':'none';
+  $('sbDrop').style.display=q?'':'none';
+  $('playlistsPanel').style.display=q?'none':'';
+  $('queueBtns').style.display=q?'':'none';
+  $('tabQueue').classList.toggle('active',q);
+  $('tabPlaylists').classList.toggle('active',!q);
+  if(!q)renderPlaylists();
+}
+async function renderPlaylists(){
+  const all=await dbGetAllPlaylists().catch(()=>[]);
+  all.sort((a,b)=>b.createdAt-a.createdAt);
+  const list=$('plList');
+  if(!all.length){list.innerHTML='<div class="pl-empty">No saved playlists yet.<br>Queue songs and tap<br>"Save Queue as Playlist".</div>';return;}
+  list.innerHTML=all.map(pl=>`
+    <div class="pl-item${state.activePlaylistId===pl.id?' active':''}" data-id="${esc(pl.id)}">
+      <div class="pl-item-info">
+        <div class="pl-item-name">${esc(pl.name)}</div>
+        <div class="pl-item-meta">${pl.trackIds.length} song${pl.trackIds.length!==1?'s':''}</div>
+      </div>
+      <div class="pl-item-actions">
+        <button class="pl-load icon-btn" data-id="${esc(pl.id)}" title="Load playlist">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+        </button>
+        <button class="pl-del" data-id="${esc(pl.id)}" title="Delete">×</button>
+      </div>
+    </div>`).join('');
+  list.querySelectorAll('.pl-load').forEach(btn=>btn.addEventListener('click',async()=>{
+    const pl=all.find(p=>p.id===btn.dataset.id);
+    if(pl){await activatePlaylist(pl);switchTab('queue');}
+  }));
+  list.querySelectorAll('.pl-del').forEach(btn=>btn.addEventListener('click',async()=>{
+    if(state.activePlaylistId===btn.dataset.id)state.activePlaylistId=null;
+    await dbDeletePlaylist(btn.dataset.id);
+    renderPlaylists();toast('Playlist deleted',1500);
+  }));
+}
+async function activatePlaylist(pl){
+  const ordered=pl.trackIds.map(id=>state._songCache[id]).filter(Boolean);
+  if(!ordered.length){toast('No songs found — add songs first');return;}
+  const cur=state.tracks[state.idx]||null;
+  state.tracks=ordered;
+  state.activePlaylistId=pl.id;
+  const ni=cur?state.tracks.indexOf(cur):-1;
+  state.idx=ni>=0?ni:0;
+  renderPlaylist();
+  loadTrack(state.idx,state.playing);
+  toast(`Playlist: ${pl.name}`,2000);
+}
+function showAllSongs(){
+  const cur=state.tracks[state.idx]||null;
+  state.tracks=Object.values(state._songCache);
+  sortTracks();
+  state.activePlaylistId=null;
+  const ni=cur?state.tracks.indexOf(cur):-1;
+  state.idx=ni>=0?ni:(state.tracks.length?0:-1);
+  renderPlaylist();
+  if(state.idx>=0)loadTrack(state.idx,state.playing);
+  toast('Showing all songs',1500);
+}
+async function saveCurrentAsPlaylist(name){
+  if(!state.tracks.length){toast('Queue is empty');return;}
+  const pl={id:genId(),name,trackIds:state.tracks.map(t=>t.id),createdAt:Date.now()};
+  await dbSavePlaylist(pl);
+  state.activePlaylistId=pl.id;
+  toast(`Saved: "${name}"`,2000);
+}
+$('tabQueue').addEventListener('click',()=>switchTab('queue'));
+$('tabPlaylists').addEventListener('click',()=>switchTab('playlists'));
+$('savePlaylistBtn').addEventListener('click',()=>{
+  $('plNewRow').style.display='';
+  $('plNameIn').value='';
+  $('plNameIn').focus();
+});
+$('plSaveOk').addEventListener('click',async()=>{
+  const name=$('plNameIn').value.trim();
+  if(!name){toast('Enter a name');return;}
+  await saveCurrentAsPlaylist(name);
+  $('plNewRow').style.display='none';
+  renderPlaylists();
+});
+$('plSaveCancel').addEventListener('click',()=>{$('plNewRow').style.display='none';});
+$('plNameIn').addEventListener('keydown',e=>{if(e.key==='Enter')$('plSaveOk').click();if(e.key==='Escape')$('plSaveCancel').click();});
+$('showAllBtn').addEventListener('click',()=>{showAllSongs();switchTab('queue');});
 
 /* ── Init ── */
 if(!('showDirectoryPicker' in window))$('folderBtn').style.display='none';
