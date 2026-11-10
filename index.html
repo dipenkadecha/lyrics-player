@@ -21,11 +21,8 @@
     <aside class="sidebar" id="sidebar">
       <div class="sb-head">
         <div class="sb-head-row">
-          <div class="sb-tabs">
-            <button class="sb-tab active" id="tabQueue">Queue</button>
-            <button class="sb-tab" id="tabPlaylists">Playlists</button>
-          </div>
-          <div class="sb-btns" id="queueBtns">
+          <h2>Queue</h2>
+          <div class="sb-btns">
             <button class="icon-btn" id="sortBtn" title="Sort by filename (A→Z)">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="15" y2="6"/><line x1="3" y1="12" x2="11" y2="12"/><line x1="3" y1="18" x2="7" y2="18"/><polyline points="17 8 21 4 21 20"/></svg>
             </button>
@@ -47,20 +44,6 @@
         </div>
       </div>
       <div class="playlist" id="playlist"></div>
-      <div class="playlists-panel" id="playlistsPanel" style="display:none">
-        <div class="pl-add-row" id="plAddRow">
-          <button class="pl-save-btn" id="savePlaylistBtn">+ Save Queue as Playlist</button>
-        </div>
-        <div class="pl-new-row" id="plNewRow" style="display:none">
-          <input type="text" id="plNameIn" placeholder="Playlist name…" maxlength="40">
-          <button class="pl-ok-btn" id="plSaveOk">Save</button>
-          <button class="pl-cancel-btn" id="plSaveCancel">×</button>
-        </div>
-        <div class="pl-all-row" id="plAllRow">
-          <button class="pl-all-btn" id="showAllBtn">Show all songs</button>
-        </div>
-        <div class="pl-list" id="plList"></div>
-      </div>
       <div class="sb-drop" id="sbDrop">Drop MP3 · WAV · OGG · FLAC here</div>
     </aside>
 
