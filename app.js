@@ -5,7 +5,7 @@ function fmt(s){if(!isFinite(s))return'0:00';const m=Math.floor(s/60),ss=Math.fl
 function genId(){return Date.now().toString(36)+Math.random().toString(36).slice(2)}
 function toast(msg,dur=2500){const e=$('toast');e.textContent=msg;e.classList.add('show');clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove('show'),dur)}
 
-const state={tracks:[],idx:-1,playing:false,shuffle:false,repeat:'none',lyrics:[],lyricIdx:-1,muted:false,vol:1,libraryHandle:null,_songCache:{},activePlaylistId:null};
+const state={tracks:[],idx:-1,playing:false,shuffle:false,repeat:'none',lyrics:[],lyricIdx:-1,muted:false,vol:1,libraryHandle:null,_songCache:{},activePlaylistId:null,editingPlaylist:null,editTrackIds:[]};
 function sortTracks(){
   if(state.tracks.length<2)return;
   const cur=state.tracks[state.idx]||null;
@@ -550,7 +550,13 @@ function switchTab(tab){
   $('tabPlaylists').classList.toggle('active',!q);
   if(!q)renderPlaylists();
 }
+function _plHeaderVis(show){
+  $('plAddRow').style.display=show?'':'none';
+  $('plAllRow').style.display=show?'':'none';
+}
 async function renderPlaylists(){
+  if(state.editingPlaylist){renderPlaylistEditView();return;}
+  _plHeaderVis(true);
   const all=await dbGetAllPlaylists().catch(()=>[]);
   all.sort((a,b)=>b.createdAt-a.createdAt);
   const list=$('plList');
@@ -562,12 +568,19 @@ async function renderPlaylists(){
         <div class="pl-item-meta">${pl.trackIds.length} song${pl.trackIds.length!==1?'s':''}</div>
       </div>
       <div class="pl-item-actions">
+        <button class="pl-edit-btn icon-btn" data-id="${esc(pl.id)}" title="Edit playlist">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        </button>
         <button class="pl-load icon-btn" data-id="${esc(pl.id)}" title="Load playlist">
           <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
         </button>
         <button class="pl-del" data-id="${esc(pl.id)}" title="Delete">×</button>
       </div>
     </div>`).join('');
+  list.querySelectorAll('.pl-edit-btn').forEach(btn=>btn.addEventListener('click',()=>{
+    const pl=all.find(p=>p.id===btn.dataset.id);
+    if(pl){state.editingPlaylist=pl;state.editTrackIds=[...pl.trackIds];renderPlaylists();}
+  }));
   list.querySelectorAll('.pl-load').forEach(btn=>btn.addEventListener('click',async()=>{
     const pl=all.find(p=>p.id===btn.dataset.id);
     if(pl){await activatePlaylist(pl);switchTab('queue');}
@@ -576,6 +589,60 @@ async function renderPlaylists(){
     if(state.activePlaylistId===btn.dataset.id)state.activePlaylistId=null;
     await dbDeletePlaylist(btn.dataset.id);
     renderPlaylists();toast('Playlist deleted',1500);
+  }));
+}
+function renderPlaylistEditView(){
+  _plHeaderVis(false);
+  const pl=state.editingPlaylist;
+  const inSet=new Set(state.editTrackIds);
+  const inPlaylist=state.editTrackIds.map(id=>state._songCache[id]).filter(Boolean);
+  const addable=state.tracks.filter(t=>!inSet.has(t.id));
+  const list=$('plList');
+  list.innerHTML=`
+    <div class="pl-edit-head">
+      <button class="icon-btn" id="plEditBack" title="Back">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <input class="pl-edit-name" id="plEditName" value="${esc(pl.name)}" maxlength="40">
+      <button class="pl-ok-btn" id="plEditSave">Save</button>
+    </div>
+    <div class="pl-section-label">In playlist (${inPlaylist.length})</div>
+    <div class="pl-edit-songs">
+      ${inPlaylist.length?inPlaylist.map(t=>`
+        <div class="pl-edit-song">
+          <div class="pl-edit-song-name">${esc(t.title)}</div>
+          <button class="pl-song-del" data-id="${esc(t.id)}" title="Remove">×</button>
+        </div>`).join(''):'<div class="pl-edit-empty">Playlist is empty</div>'}
+    </div>
+    ${addable.length?`
+      <div class="pl-section-label">Add from queue (${addable.length})</div>
+      <div class="pl-edit-add">
+        ${addable.map(t=>`
+          <div class="pl-edit-song">
+            <div class="pl-edit-song-name">${esc(t.title)}</div>
+            <button class="pl-song-add" data-id="${esc(t.id)}" title="Add">+</button>
+          </div>`).join('')}
+      </div>`:''}`;
+  $('plEditBack').addEventListener('click',()=>{state.editingPlaylist=null;state.editTrackIds=[];renderPlaylists();});
+  $('plEditSave').addEventListener('click',async()=>{
+    const name=$('plEditName').value.trim()||pl.name;
+    const updated={...pl,name,trackIds:state.editTrackIds};
+    await dbSavePlaylist(updated);
+    if(state.activePlaylistId===pl.id){
+      // Refresh active playlist queue to reflect edits
+      await activatePlaylist(updated);
+    }
+    state.editingPlaylist=null;state.editTrackIds=[];
+    toast(`Saved "${name}"`,2000);
+    renderPlaylists();
+  });
+  list.querySelectorAll('.pl-song-del').forEach(btn=>btn.addEventListener('click',()=>{
+    state.editTrackIds=state.editTrackIds.filter(id=>id!==btn.dataset.id);
+    renderPlaylistEditView();
+  }));
+  list.querySelectorAll('.pl-song-add').forEach(btn=>btn.addEventListener('click',()=>{
+    if(!state.editTrackIds.includes(btn.dataset.id))state.editTrackIds.push(btn.dataset.id);
+    renderPlaylistEditView();
   }));
 }
 async function activatePlaylist(pl){

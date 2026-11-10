@@ -89,6 +89,21 @@ html,body{height:100%;font-family:'Segoe UI',system-ui,sans-serif;background:var
 .pl-item:hover .pl-del{color:var(--muted)}
 .pl-del:hover{color:var(--del) !important}
 .pl-empty{padding:30px 14px;font-size:12px;color:var(--muted);text-align:center;line-height:1.8}
+/* ── Playlist edit view ── */
+.pl-edit-head{display:flex;align-items:center;gap:5px;padding:8px 14px;border-bottom:1px solid var(--border);flex-shrink:0}
+.pl-edit-name{flex:1;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:5px;padding:5px 8px;font-size:12px;outline:none;min-width:0;font-weight:600}
+.pl-edit-name:focus{border-color:var(--accent)}
+.pl-section-label{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:8px 14px 3px;flex-shrink:0}
+.pl-edit-songs,.pl-edit-add{overflow-y:auto}
+.pl-edit-song{display:flex;align-items:center;gap:8px;padding:7px 14px;transition:background .1s}
+.pl-edit-song:hover{background:var(--surface2)}
+.pl-edit-song-name{flex:1;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text)}
+.pl-song-del{background:none;border:none;color:transparent;cursor:pointer;padding:2px 5px;border-radius:3px;font-size:16px;line-height:1;transition:color .15s;flex-shrink:0}
+.pl-edit-song:hover .pl-song-del{color:var(--muted)}
+.pl-song-del:hover{color:var(--del) !important}
+.pl-song-add{background:none;border:1px solid var(--border);color:var(--muted);cursor:pointer;padding:1px 7px;border-radius:3px;font-size:16px;line-height:1.4;transition:border-color .15s,color .15s;flex-shrink:0}
+.pl-song-add:hover{border-color:var(--ok);color:var(--ok)}
+.pl-edit-empty{font-size:12px;color:var(--muted);padding:8px 14px}
 .sb-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:49;backdrop-filter:blur(2px)}
 .sb-backdrop.vis{display:block}
 
